@@ -42,11 +42,12 @@ The original forked code from [bejelith/send_rate_policyd](https://github.com/be
 Recommended installation:
 
 ```bash
-$ cd /opt/
-$ git clone https://github.com/onlime/ratelimit-policyd.git ratelimit-policyd
-$ cd ratelimit-policyd
-$ chmod +x install.sh
-$ ./install.sh
+apt-get -y install insserv
+cd /opt/
+git clone https://github.com/onlime/ratelimit-policyd.git ratelimit-policyd
+cd ratelimit-policyd
+chmod +x install.sh
+./install.sh
 ```
 
 Create the DB schema and user:
