@@ -16,7 +16,7 @@ my $semaphore = new Thread::Semaphore;
 # bring in custom config
 my %config = do 'config.pl';
 
-my @cpanallowedhosts    =  ('127.0.0.1', '10.0.0.1');
+my @allowedhosts    =  ('127.0.0.1', '10.0.0.1');
 if (exists $config{allowedhosts}) {
     $allowedhosts = $config{allowedhosts};
 }

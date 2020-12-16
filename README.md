@@ -133,6 +133,7 @@ Above command should output something like the following:
 ps aux | grep daemon.pl
 ```
 Above command should output something like the following:
+
 postfix  30566  0.4  0.1 176264 19304 ?        Ssl  14:37   0:00 /opt/send_rate_policyd/daemon.pl
 
 ```bash
