@@ -42,11 +42,16 @@ The original forked code from [bejelith/send_rate_policyd](https://github.com/be
 Recommended installation:
 
 ```bash
-apt-get -y install insserv
+# install required plugins
+apt-get -y install insserv libswitch-perl libdbd-mysql-perl
+
+# download ratelimit-policyd 
 cd /opt/
 git clone https://github.com/onlime/ratelimit-policyd.git ratelimit-policyd
 cd ratelimit-policyd
 chmod +x install.sh
+
+# Install
 ./install.sh
 ```
 
@@ -55,6 +60,7 @@ Create the DB schema and user:
 ```bash
 $ mysql -u root -p < mysql-schema.sql
 ```
+Run this SQL to create user. Change '********' with your chosen password
 
 ```sql
 GRANT USAGE ON *.* TO policyd@'localhost' IDENTIFIED BY '********';
