@@ -59,12 +59,12 @@ chmod +x install.sh
 Create the DB schema and user:
 
 ```bash
-$ mysql -u root -p < mysql-schema.sql
+mysql -u root -p < mysql-schema.sql
 ```
-Run this SQL to create user. Change '********' with your chosen password
+Run this SQL to create user. Change '************' with your chosen password
 
 ```sql
-GRANT USAGE ON *.* TO policyd@'localhost' IDENTIFIED BY '********';
+GRANT USAGE ON *.* TO policyd@'localhost' IDENTIFIED BY '************';
 GRANT SELECT, INSERT, UPDATE, DELETE ON policyd.* TO policyd@'localhost';
 ```
 
@@ -107,7 +107,7 @@ In most cases, the default configuration should be fine. Just don't forget to pa
 Now, start the daemon:
 
 ```bash
-$ service ratelimit-policyd start
+service ratelimit-policyd start
 ```
 
 ## Testing
@@ -115,16 +115,29 @@ $ service ratelimit-policyd start
 Check if the daemon is really running:
 
 ```bash
-$ netstat -tl | grep 10032
+netstat -tl | grep 10032
+```
+Above command should output something like the following:
 tcp        0      0 localhost.localdo:10032 *:*                     LISTEN
 
-$ cat /var/run/ratelimit-policyd.pid
+
+```bash
+cat /var/run/ratelimit-policyd.pid
+```
+Above command should output something like the following:
 30566
 
-$ ps aux | grep daemon.pl
+```bash
+ps aux | grep daemon.pl
+```
+Above command should output something like the following:
 postfix  30566  0.4  0.1 176264 19304 ?        Ssl  14:37   0:00 /opt/send_rate_policyd/daemon.pl
 
-$ pstree -p | grep ratelimit
+```bash
+pstree -p | grep ratelimit
+```
+Above command should output something like the following:
+
 init(1)-+-/opt/ratelimit-(11298)-+-{/opt/ratelimit-}(11300)
         |                        |-{/opt/ratelimit-}(11301)
         |                        |-{/opt/ratelimit-}(11302)
@@ -134,16 +147,17 @@ init(1)-+-/opt/ratelimit-(11298)-+-{/opt/ratelimit-}(11300)
         |                        |-{/opt/ratelimit-}(15058)
         |                        `-{/opt/ratelimit-}(15065)
 
-```
-
 Print the cache content (in shared memory) with update statistics:
 
 ```bash
-$ service ratelimit-policyd status
+service ratelimit-policyd status
+```
+Above command should output something like the following:
+
 Printing shm:
 Domain		:	Quota	:	Used	:	Expire
 Threads running: 6, Threads waiting: 2
-```
+
 
 ## Postfix Configuration
 
@@ -168,7 +182,7 @@ smtpd_data_restrictions =
 If you're sure that ratelimit-policyd is really running, restart Postfix:
 
 ```
-$ service postfix restart
+service postfix restart
 ```
 
 ## Logging
@@ -176,10 +190,17 @@ $ service postfix restart
 Detailed logging is written to ``/var/log/ratelimit-policyd.log```. In addition, the most important information including the counter status is written to syslog:
 
 ```
-$ tail -f /var/log/ratelimit-policyd.log 
+tail -f /var/log/ratelimit-policyd.log 
+```
+Above command should output something like the following:
+
 Sat Jan 10 12:08:37 2015 Looking for demo@example.com
 Sat Jan 10 12:08:37 2015 07F452AC009F: client=4-3.2-1.cust.example.com[1.2.3.4], sasl_method=PLAIN, sasl_username=demo@example.com, recipient_count=1, curr_count=6/1000, status=UPDATE
 
-$ grep ratelimit-policyd /var/log/syslog
-Jan 10 12:08:37 mx1 ratelimit-policyd[2552]: 07F452AC009F: client=4-3.2-1.cust.example.com[1.2.3.4], sasl_method=PLAIN, sasl_username=demo@example.com, recipient_count=1, curr_count=6/1000, status=UPDATE
 ```
+grep ratelimit-policyd /var/log/syslog
+```
+Above command should output something like the following:
+
+Jan 10 12:08:37 mx1 ratelimit-policyd[2552]: 07F452AC009F: client=4-3.2-1.cust.example.com[1.2.3.4], sasl_method=PLAIN, sasl_username=demo@example.com, recipient_count=1, curr_count=6/1000, status=UPDATE
+
