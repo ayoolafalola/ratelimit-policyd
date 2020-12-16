@@ -47,8 +47,10 @@ sudo apt-get -y install insserv libswitch-perl libdbd-mysql-perl
 
 # download ratelimit-policyd 
 cd /opt/
+cp ratelimit-policyd/config.pl ratelimit-policy-config.pl
 rm -rf ratelimit-policyd
 git clone https://github.com/ayoolafalola/ratelimit-policyd.git ratelimit-policyd
+cp ratelimit-policy-config.pl ratelimit-policyd/config.pl
 cd ratelimit-policyd
 chmod +x install.sh
 

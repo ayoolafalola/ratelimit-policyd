@@ -10,29 +10,94 @@ use Thread::Semaphore;
 use File::Basename;
 my $semaphore = new Thread::Semaphore;
 
+
 ### CONFIGURATION SECTION
-my @allowedhosts    = ('127.0.0.1', '10.0.0.1');
+
+# bring in custom config
+my %config = do 'config.pl';
+
+my @cpanallowedhosts    =  ('127.0.0.1', '10.0.0.1');
+if (exists $config{allowedhosts}) {
+    $allowedhosts = $config{allowedhosts};
+}
 my $LOGFILE         = "/var/log/ratelimit-policyd.log";
+if (exists $config{LOGFILE}) {
+    $LOGFILE = $config{LOGFILE};
+}
 my $PIDFILE         = "/var/run/ratelimit-policyd.pid";
+if (exists $config{PIDFILE}) {
+    $PIDFILE = $config{PIDFILE};
+}
 my $SYSLOG_IDENT    = "ratelimit-policyd";
+if (exists $config{SYSLOG_IDENT}) {
+    $SYSLOG_IDENT = $config{SYSLOG_IDENT};
+}
 my $SYSLOG_LOGOPT   = "ndelay,pid";
+if (exists $config{SYSLOG_LOGOPT}) {
+    $SYSLOG_LOGOPT = $config{SYSLOG_LOGOPT};
+}
 my $SYSLOG_FACILITY = LOG_MAIL;
 chomp( my $vhost_dir = `pwd`);
 my $port            = 10032;
+if (exists $config{port}) {
+    $port = $config{port};
+}
 my $listen_address  = '127.0.0.1'; # or '0.0.0.0'
+if (exists $config{listen_address}) {
+    $listen_address = $config{listen_address};
+}
 my $s_key_type      = 'all'; # domain or email or all
+if (exists $config{s_key_type}) {
+    $s_key_type = $config{s_key_type};
+}
 my $dsn             = "DBI:mysql:policyd:127.0.0.1";
+if (exists $config{dsn}) {
+    $dsn = $config{dsn};
+}
 my $db_user         = 'policyd';
+if (exists $config{db_user}) {
+    $db_user = $config{db_user};
+}
 my $db_passwd       = '************';
+if (exists $config{db_passwd}) {
+    $db_passwd = $config{db_passwd};
+}
 my $db_table        = 'ratelimit';
+if (exists $config{db_table}) {
+    $db_table = $config{db_table};
+}
 my $db_quotacol     = 'quota';
+if (exists $config{db_quotacol}) {
+    $db_quotacol = $config{db_quotacol};
+}
 my $db_tallycol     = 'used';
+if (exists $config{db_tallycol}) {
+    $db_tallycol = $config{db_tallycol};
+}
 my $db_updatedcol   = 'updated';
+if (exists $config{db_updatedcol}) {
+    $db_updatedcol = $config{db_updatedcol};
+}
 my $db_expirycol    = 'expiry';
+if (exists $config{db_expirycol}) {
+    $db_expirycol = $config{db_expirycol};
+}
 my $db_wherecol     = 'sender';
+if (exists $config{db_wherecol}) {
+    $db_wherecol = $config{db_wherecol};
+}
 my $db_persistcol   = 'persist';
+if (exists $config{db_persistcol}) {
+    $db_persistcol = $config{db_persistcol};
+}
 my $deltaconf       = 'daily'; # hourly|daily|weekly|monthly
+if (exists $config{deltaconf}) {
+    $deltaconf = $config{deltaconf};
+}
 my $defaultquota    = 100;
+if (exists $config{defaultquota}) {
+    $defaultquota = $config{defaultquota};
+}
 my $sql_getquota    = "SELECT `$db_quotacol`, `$db_tallycol`, `$db_expirycol`, `$db_persistcol` FROM `$db_table` WHERE `$db_wherecol` = ? AND `$db_quotacol` > 0";
 my $sql_updatequota = "UPDATE `$db_table` SET `$db_tallycol` = `$db_tallycol` + ?, `$db_updatedcol` = NOW(), `$db_expirycol` = ? WHERE `$db_wherecol` = ?";
 my $sql_updatereset = "UPDATE `$db_table` SET `$db_quotacol` = ?, `$db_tallycol` = ?, `$db_updatedcol` = NOW(), `$db_expirycol` = ? WHERE `$db_wherecol` = ?";
