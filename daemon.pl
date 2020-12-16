@@ -20,7 +20,7 @@ my $SYSLOG_FACILITY = LOG_MAIL;
 chomp( my $vhost_dir = `pwd`);
 my $port            = 10032;
 my $listen_address  = '127.0.0.1'; # or '0.0.0.0'
-my $s_key_type      = 'email'; # domain or email
+my $s_key_type      = 'all'; # domain or email or all
 my $dsn             = "DBI:mysql:policyd:127.0.0.1";
 my $db_user         = 'policyd';
 my $db_passwd       = '************';
@@ -186,118 +186,155 @@ sub start_thr {
 }
 
 sub handle_req {
-	my @buf = @_;
-	my $protocol_state;
-	my $sasl_method;
-	my $sasl_username; 
-	my $recipient_count;
-	my $queue_id;
-	my $client_address;
-	my $client_name;
-	local $/ = "\n";
-	foreach $aline(@buf) {
-		my @line = split("=", $aline);
-		chomp(@line);
-		#logger("DEBUG ". $line[0] ."=". $line[1]);
-		switch($line[0]) {
-			case "protocol_state" { 
-				chomp($protocol_state = $line[1]);
-			}
-			case "sasl_method"{
-				chomp($sasl_method = $line[1]);
-			}
-			case "sasl_username"{
-				chomp($sasl_username = $line[1]);
-			}
-			case "recipient_count"{
-				chomp($recipient_count = $line[1]);
-			}
-			case "queue_id"{
-				chomp($queue_id = $line[1]);
-			}
-			case "client_address"{
-				chomp($client_address = $line[1]);
-			}
-			case "client_name"{
-				chomp($client_name = $line[1]);
-			}
-		}
-	}
 
-	if ($protocol_state !~ m/DATA/ || $sasl_username eq "" ) {
-		return "ok";
-	}
-	
-	my $skey = '';
-	if ($s_key_type eq 'domain') {
-		$skey = (split("@", $sasl_username))[1];
-	} else {
-		$skey = $sasl_username;
-	}
+    my $usedEmail = 0;
+    my $usedDomain = 0;
+    my $checkCounter = 0;
+    while(1)
+    {
 
-	my $syslogMsg;
-	my $syslogMsgTpl = sprintf("%s: client=%s[%s], sasl_method=%s, sasl_username=%s, recipient_count=%s, curr_count=%%s/%%s, status=%%s",
-	                           $queue_id, $client_name, $client_address, $sasl_method, $sasl_username, $recipient_count);
+        if( $checkCounter > 2 )
+        {
+            last;
+        }
+        elsif( $s_key_type ne 'all' )
+        {
+            $usedEmail = 1;
+            $usedDomain = 1;
+            if( $checkCounter )
+            {
+                last;
+            }
+        }
+        elsif( ! $usedEmail )
+        {
+            $s_key_type = 'email';
+            $usedEmail = 1;
+        }
+        elsif( ! $usedDomain )
+        {
+            $s_key_type = 'domain';
+            $usedDomain = 1;
+        }
+        else
+        {
+            last;
+        }
+        $checkCounter++;
+        my @buf = @_;
+        my $protocol_state;
+        my $sasl_method;
+        my $sasl_username; 
+        my $recipient_count;
+        my $queue_id;
+        my $client_address;
+        my $client_name;
+        local $/ = "\n";
+        foreach $aline(@buf) {
+            my @line = split("=", $aline);
+            chomp(@line);
+            #logger("DEBUG ". $line[0] ."=". $line[1]);
+            switch($line[0]) {
+                case "protocol_state" { 
+                    chomp($protocol_state = $line[1]);
+                }
+                case "sasl_method"{
+                    chomp($sasl_method = $line[1]);
+                }
+                case "sasl_username"{
+                    chomp($sasl_username = $line[1]);
+                }
+                case "recipient_count"{
+                    chomp($recipient_count = $line[1]);
+                }
+                case "queue_id"{
+                    chomp($queue_id = $line[1]);
+                }
+                case "client_address"{
+                    chomp($client_address = $line[1]);
+                }
+                case "client_name"{
+                    chomp($client_name = $line[1]);
+                }
+            }
+        }
 
-	#TODO: Maybe i should move to semaphore!!!
-	lock($lock);
-	if (!exists($quotahash{$skey})) {
-		logger("Looking for $skey");
-		my $dbh = get_db_handler()
-			or return "dunno";;
-		my $sql_query = $dbh->prepare($sql_getquota);
-		$sql_query->execute($skey);
-		if ($sql_query->rows > 0) {
-			while(@row = $sql_query->fetchrow_array()) {
-				$quotahash{$skey} = &share({});
-				$quotahash{$skey}{'quota'}   = $row[0];
-				$quotahash{$skey}{'tally'}   = $row[1];
-				$quotahash{$skey}{'sum'}     = 0;
-				$quotahash{$skey}{'expire'}  = $row[2];
-				$quotahash{$skey}{'persist'} = $row[3];
-				undef @row;
-			}
-			$sql_query->finish();
-			$dbh->disconnect;
-		} else {
-			$sql_query->finish();
-			my $expire = calcexpire($deltaconf);
-			$sql_query = $dbh->prepare($sql_insertquota);
-			logger("Inserting $skey, $defaultquota, $recipient_count, $expire");
-			$sql_query->execute($skey, $defaultquota, $recipient_count, $expire)
-				or logger("Query error: ". $sql_query->errstr);
-			$sql_query->finish();
-			$dbh->disconnect;
-			$syslogMsg = sprintf($syslogMsgTpl, $recipient_count, $defaultquota, "INSERT");
-			logger($syslogMsg);
-			syslog(LOG_NOTICE, $syslogMsg);
-			return "dunno";
-		}
-	}
-	if ($quotahash{$skey}{'expire'} < time()) {
-		lock($lock);
-		$quotahash{$skey}{'sum'}    = 0;
-		$quotahash{$skey}{'tally'}  = 0;
-		$quotahash{$skey}{'expire'} = calcexpire($deltaconf);
-		my $newQuota = ($quotahash{$skey}{'persist'}) ? $quotahash{$skey}{'quota'} : $defaultquota;
-		my $dbh = get_db_handler()
-			or return "dunno";;
-		my $sql_query = $dbh->prepare($sql_updatereset);
-		$sql_query->execute($newQuota, 0, $quotahash{$skey}{'expire'}, $skey)
-			or logger("Query error: ". $sql_query->errstr);
-	}
-	$quotahash{$skey}{'tally'} += $recipient_count;
-	$quotahash{$skey}{'sum'}   += $recipient_count;
-	if ($quotahash{$skey}{'tally'} > $quotahash{$skey}{'quota'}) {
-		$syslogMsg = sprintf($syslogMsgTpl, $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'}, "OVER_QUOTA");
-		logger($syslogMsg);
-		syslog(LOG_WARNING, $syslogMsg);
-		return "471 $deltaconf message quota exceeded"; 
-	}
-	$syslogMsg = sprintf($syslogMsgTpl, $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'}, "UPDATE");
-	logger($syslogMsg);
-	syslog(LOG_INFO, $syslogMsg);
+        if ($protocol_state !~ m/DATA/ || $sasl_username eq "" ) {
+            return "ok";
+        }
+        
+        my $skey = '';
+        if ($s_key_type eq 'domain') {
+            $skey = (split("@", $sasl_username))[1];
+        } else {
+            $skey = $sasl_username;
+        }
+
+        my $syslogMsg;
+        my $syslogMsgTpl = sprintf("%s: client=%s[%s], sasl_method=%s, sasl_username=%s, recipient_count=%s, curr_count=%%s/%%s, status=%%s",
+                                $queue_id, $client_name, $client_address, $sasl_method, $sasl_username, $recipient_count);
+
+        #TODO: Maybe i should move to semaphore!!!
+        lock($lock);
+        if (!exists($quotahash{$skey})) {
+            logger("Looking for $skey");
+            my $dbh = get_db_handler()
+                or return "dunno";;
+            my $sql_query = $dbh->prepare($sql_getquota);
+            $sql_query->execute($skey);
+            if ($sql_query->rows > 0) {
+                while(@row = $sql_query->fetchrow_array()) {
+                    $quotahash{$skey} = &share({});
+                    $quotahash{$skey}{'quota'}   = $row[0];
+                    $quotahash{$skey}{'tally'}   = $row[1];
+                    $quotahash{$skey}{'sum'}     = 0;
+                    $quotahash{$skey}{'expire'}  = $row[2];
+                    $quotahash{$skey}{'persist'} = $row[3];
+                    undef @row;
+                }
+                $sql_query->finish();
+                $dbh->disconnect;
+            } else {
+                $sql_query->finish();
+                my $expire = calcexpire($deltaconf);
+                $sql_query = $dbh->prepare($sql_insertquota);
+                logger("Inserting $skey, $defaultquota, $recipient_count, $expire");
+                $sql_query->execute($skey, $defaultquota, $recipient_count, $expire)
+                    or logger("Query error: ". $sql_query->errstr);
+                $sql_query->finish();
+                $dbh->disconnect;
+                $syslogMsg = sprintf($syslogMsgTpl, $recipient_count, $defaultquota, "INSERT");
+                logger($syslogMsg);
+                syslog(LOG_NOTICE, $syslogMsg);
+                return "dunno";
+            }
+        }
+        if ($quotahash{$skey}{'expire'} < time()) {
+            lock($lock);
+            $quotahash{$skey}{'sum'}    = 0;
+            $quotahash{$skey}{'tally'}  = 0;
+            $quotahash{$skey}{'expire'} = calcexpire($deltaconf);
+            my $newQuota = ($quotahash{$skey}{'persist'}) ? $quotahash{$skey}{'quota'} : $defaultquota;
+            my $dbh = get_db_handler()
+                or return "dunno";;
+            my $sql_query = $dbh->prepare($sql_updatereset);
+            $sql_query->execute($newQuota, 0, $quotahash{$skey}{'expire'}, $skey)
+                or logger("Query error: ". $sql_query->errstr);
+        }
+        $quotahash{$skey}{'tally'} += $recipient_count;
+        $quotahash{$skey}{'sum'}   += $recipient_count;
+        if ($quotahash{$skey}{'tally'} > $quotahash{$skey}{'quota'}) {
+            $syslogMsg = sprintf($syslogMsgTpl, $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'}, "OVER_QUOTA");
+            logger($syslogMsg);
+            syslog(LOG_WARNING, $syslogMsg);
+            return "471 $deltaconf message quota exceeded"; 
+        }
+        $syslogMsg = sprintf($syslogMsgTpl, $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'}, "UPDATE");
+        logger($syslogMsg);
+        syslog(LOG_INFO, $syslogMsg);
+    }
 	return "dunno";
+
 }
 
 sub sigterm_handler {
