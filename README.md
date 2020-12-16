@@ -43,7 +43,7 @@ Recommended installation:
 
 ```bash
 # install required plugins
-apt-get -y install insserv libswitch-perl libdbd-mysql-perl
+sudo apt-get -y install insserv libswitch-perl libdbd-mysql-perl
 
 # download ratelimit-policyd 
 cd /opt/
