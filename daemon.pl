@@ -32,7 +32,7 @@ my $db_expirycol    = 'expiry';
 my $db_wherecol     = 'sender';
 my $db_persistcol   = 'persist';
 my $deltaconf       = 'daily'; # hourly|daily|weekly|monthly
-my $defaultquota    = 1000;
+my $defaultquota    = 100;
 my $sql_getquota    = "SELECT `$db_quotacol`, `$db_tallycol`, `$db_expirycol`, `$db_persistcol` FROM `$db_table` WHERE `$db_wherecol` = ? AND `$db_quotacol` > 0";
 my $sql_updatequota = "UPDATE `$db_table` SET `$db_tallycol` = `$db_tallycol` + ?, `$db_updatedcol` = NOW(), `$db_expirycol` = ? WHERE `$db_wherecol` = ?";
 my $sql_updatereset = "UPDATE `$db_table` SET `$db_quotacol` = ?, `$db_tallycol` = ?, `$db_updatedcol` = NOW(), `$db_expirycol` = ? WHERE `$db_wherecol` = ?";
