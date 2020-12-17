@@ -53,7 +53,7 @@ Create the DB schema and user:
 ```bash
 mysql -u root -p < mysql-schema.sql
 ```
-Run this SQL to create user. Change '************' with your chosen password
+Run this SQL to create database user. Change '************' with your chosen password
 
 ```sql
 GRANT USAGE ON *.* TO policyd@'localhost' IDENTIFIED BY '************';
@@ -61,8 +61,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON policyd.* TO policyd@'localhost';
 ```
 
 ```bash
-# install required plugins
-sudo apt-get -y install insserv libswitch-perl libdbd-mysql-perl
 
 # download ratelimit-policyd 
 cd /opt/
@@ -75,6 +73,7 @@ chmod +x install.sh
 
 # Install
 ./install.sh
+
 ```
 
 
@@ -190,6 +189,8 @@ service postfix restart
 
 Detailed logging is written to ``/var/log/ratelimit-policyd.log```. In addition, the most important information including the counter status is written to syslog:
 
+Check ratelimit-policyd log
+
 ```
 tail -f /var/log/ratelimit-policyd.log 
 ```
@@ -198,9 +199,12 @@ Above command should output something like the following:
 Sat Jan 10 12:08:37 2015 Looking for demo@example.com
 Sat Jan 10 12:08:37 2015 07F452AC009F: client=4-3.2-1.cust.example.com[1.2.3.4], sasl_method=PLAIN, sasl_username=demo@example.com, recipient_count=1, curr_count=6/1000, status=UPDATE
 
+Check systemlog
+
 ```
-grep ratelimit-policyd /var/log/syslog
+tail -f /var/log/syslog | grep ratelimit-policyd 
 ```
+
 Above command should output something like the following:
 
 Jan 10 12:08:37 mx1 ratelimit-policyd[2552]: 07F452AC009F: client=4-3.2-1.cust.example.com[1.2.3.4], sasl_method=PLAIN, sasl_username=demo@example.com, recipient_count=1, curr_count=6/1000, status=UPDATE
