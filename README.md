@@ -6,7 +6,9 @@ Copyright (c) Onlime Webhosting (http://www.onlime.ch)
 
 ## Credits
 
-This project was forked from [bejelith/send_rate_policyd](https://github.com/bejelith/send_rate_policyd). All credits go to [Simone Caruso](http://www.simonecaruso.com).
+This project was forked originally from  [bejelith/send_rate_policyd](https://github.com/bejelith/send_rate_policyd). All credits go to [Simone Caruso](http://www.simonecaruso.com). 
+
+More features added by [onlime/ratelimit-policyd](https://github.com/onlime/ratelimit-policyd). Credits go to [Onlime Webhosting](http://www.onlime.ch)
 
 ## Purpose
 
@@ -20,7 +22,7 @@ ratelimit-policyd will never be as feature-rich as other policy daemons. Its mai
 
 **This daemon caches the quota in memory, so you don't need to worry about I/O operations!**
 
-## New Features
+## New Features by [onlime/ratelimit-policyd](https://github.com/onlime/ratelimit-policyd) 
 
 The original forked code from [bejelith/send_rate_policyd](https://github.com/bejelith/send_rate_policyd) was improved with the following new features:
 
@@ -36,6 +38,16 @@ The original forked code from [bejelith/send_rate_policyd](https://github.com/be
 - added logrotation script for /var/log/ratelimit-policyd.log
 - added flag in ratelimit DB table to make specific quotas persistent (all others will get reset to default after expiry)
 - continue raising counter even in over quota state
+
+## New Features by [ayoolafalola/ratelimit-policyd](https://github.com/ayoolafalola/ratelimit-policyd) 
+
+- Sendmail to admin on overusage
+- Sendmail to overusage user
+- Allows to set quota for email and domain at the same time
+- Separate domain default quota from email default quota
+- Separate config file for seamless upgrade
+- Updated Installation doc to include plugin installations
+
 
 ## Installation
 
