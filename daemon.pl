@@ -100,9 +100,17 @@ my $defaultquota    = 100;
 if (exists( $config{'defaultquota'} )) {
     $defaultquota = $config{'defaultquota'};
 }
-my $defaultDomainquota    = 200;
-if (exists( $config{'defaultDomainquota'} )) {
-    $defaultDomainquota = $config{'defaultDomainquota'};
+my $defaultDomainQuota    = 200;
+if (exists( $config{'defaultDomainQuota'} )) {
+    $defaultDomainQuota = $config{'defaultDomainQuota'};
+}
+my $sendMailNotificationFrom    = 'mail@localhost';
+if (exists( $config{'sendMailNotificationFrom'} )) {
+    $sendMailNotificationFrom = $config{'sendMailNotificationFrom'};
+}
+my $sendMailNotificationTo    = 'mail@localhost';
+if (exists( $config{'sendMailNotificationTo'} )) {
+    $sendMailNotificationTo = $config{'sendMailNotificationTo'};
 }
 my $sql_getquota    = "SELECT `$db_quotacol`, `$db_tallycol`, `$db_expirycol`, `$db_persistcol` FROM `$db_table` WHERE `$db_wherecol` = ? AND `$db_quotacol` > 0";
 my $sql_updatequota = "UPDATE `$db_table` SET `$db_tallycol` = `$db_tallycol` + ?, `$db_updatedcol` = NOW(), `$db_expirycol` = ? WHERE `$db_wherecol` = ?";
@@ -335,13 +343,13 @@ sub handle_req {
         my $quotaToUse = $defaultquota;
         if ($s_key_type eq 'domain') {
             $skey = (split("@", $sasl_username))[1];
-            $quotaToUse = defaultDomainquota;
+            $quotaToUse = $defaultDomainQuota;
         } else {
             $skey = $sasl_username;
         }
 
         my $syslogMsg;
-        my $syslogMsgTpl = sprintf("%s: client=%s[%s], sasl_method=%s, sasl_username=%s, recipient_count=%s, curr_count=%%s/%%s, status=%%s, mode=%%s",
+        my $syslogMsgTpl = sprintf("%s: client=%s[%s], sasl_method=%s, sasl_username=%s, recipient_count=%s, mode=%s, curr_count=%%s/%%s, status=%%s",
                                 $queue_id, $client_name, $client_address, $sasl_method, $sasl_username, $recipient_count, $s_key_type);
 
         #TODO: Maybe i should move to semaphore!!!
@@ -398,7 +406,25 @@ sub handle_req {
             $syslogMsg = sprintf($syslogMsgTpl, $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'}, "OVER_QUOTA");
             logger($syslogMsg);
             syslog(LOG_WARNING, $syslogMsg);
-            return "471 $deltaconf message quota exceeded"; 
+
+            my $errorMsg = "471 $deltaconf message quota exceeded";
+            $to = $sendMailNotificationTo;
+            $from = $sendMailNotificationFrom;
+            $subject = $errorMsg;
+            $message = $syslogMsg;
+            
+            open(MAIL, "|/usr/sbin/sendmail -t");
+            
+            # Email Header
+            print MAIL "To: $to\n";
+            print MAIL "From: $from\n";
+            print MAIL "Subject: $subject\n\n";
+            # Email Body
+            print MAIL $message;
+
+            close(MAIL);
+
+            return $errorMsg; 
         }
         $syslogMsg = sprintf($syslogMsgTpl, $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'}, "UPDATE");
         logger($syslogMsg);
