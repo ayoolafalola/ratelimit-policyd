@@ -14,7 +14,7 @@ my $semaphore = new Thread::Semaphore;
 ### CONFIGURATION SECTION
 
 # bring in custom config
-my %config = do 'config.pl';
+my %config = do '/opt/ratelimit-policyd/config.pl';
 
 my @allowedhosts    =  ('127.0.0.1', '10.0.0.1');
 if (exists( $config{'allowedhosts'} )) {
@@ -50,6 +50,8 @@ my $s_key_type      = 'all'; # domain or email or all
 if (exists( $config{'s_key_type'} )) {
     $s_key_type = $config{'s_key_type'};
 }
+my $realKeyType = $s_key_type;
+
 my $dsn             = "DBI:mysql:policyd:127.0.0.1";
 if (exists( $config{'dsn'} )) {
     $dsn = $config{'dsn'};
@@ -97,6 +99,10 @@ if (exists( $config{'deltaconf'} )) {
 my $defaultquota    = 100;
 if (exists( $config{'defaultquota'} )) {
     $defaultquota = $config{'defaultquota'};
+}
+my $defaultDomainquota    = 200;
+if (exists( $config{'defaultDomainquota'} )) {
+    $defaultDomainquota = $config{'defaultDomainquota'};
 }
 my $sql_getquota    = "SELECT `$db_quotacol`, `$db_tallycol`, `$db_expirycol`, `$db_persistcol` FROM `$db_table` WHERE `$db_wherecol` = ? AND `$db_quotacol` > 0";
 my $sql_updatequota = "UPDATE `$db_table` SET `$db_tallycol` = `$db_tallycol` + ?, `$db_updatedcol` = NOW(), `$db_expirycol` = ? WHERE `$db_wherecol` = ?";
@@ -254,24 +260,22 @@ sub handle_req {
 
     my $usedEmail = 0;
     my $usedDomain = 0;
-    my $checkCounter = 0;
-    while(1)
+    if( $realKeyType ne 'all' )
     {
-
-        if( $checkCounter > 2 )
+        if( $realKeyType eq 'email' )
         {
-            last;
+            $usedDomain = 1;
         }
-        elsif( $s_key_type ne 'all' )
+        if( $realKeyType eq 'domain' )
         {
             $usedEmail = 1;
-            $usedDomain = 1;
-            if( $checkCounter )
-            {
-                last;
-            }
         }
-        elsif( ! $usedEmail )
+    }
+
+    while(1)
+    {      
+
+        if( ! $usedEmail )
         {
             $s_key_type = 'email';
             $usedEmail = 1;
@@ -285,7 +289,6 @@ sub handle_req {
         {
             last;
         }
-        $checkCounter++;
         my @buf = @_;
         my $protocol_state;
         my $sasl_method;
@@ -329,15 +332,17 @@ sub handle_req {
         }
         
         my $skey = '';
+        my $quotaToUse = $defaultquota;
         if ($s_key_type eq 'domain') {
             $skey = (split("@", $sasl_username))[1];
+            $quotaToUse = defaultDomainquota;
         } else {
             $skey = $sasl_username;
         }
 
         my $syslogMsg;
-        my $syslogMsgTpl = sprintf("%s: client=%s[%s], sasl_method=%s, sasl_username=%s, recipient_count=%s, curr_count=%%s/%%s, status=%%s",
-                                $queue_id, $client_name, $client_address, $sasl_method, $sasl_username, $recipient_count);
+        my $syslogMsgTpl = sprintf("%s: client=%s[%s], sasl_method=%s, sasl_username=%s, recipient_count=%s, curr_count=%%s/%%s, status=%%s, mode=%%s",
+                                $queue_id, $client_name, $client_address, $sasl_method, $sasl_username, $recipient_count, $s_key_type);
 
         #TODO: Maybe i should move to semaphore!!!
         lock($lock);
@@ -363,15 +368,16 @@ sub handle_req {
                 $sql_query->finish();
                 my $expire = calcexpire($deltaconf);
                 $sql_query = $dbh->prepare($sql_insertquota);
-                logger("Inserting $skey, $defaultquota, $recipient_count, $expire");
-                $sql_query->execute($skey, $defaultquota, $recipient_count, $expire)
+                logger("Inserting $skey, $quotaToUse, $recipient_count, $expire");
+                $sql_query->execute($skey, $quotaToUse, $recipient_count, $expire)
                     or logger("Query error: ". $sql_query->errstr);
                 $sql_query->finish();
                 $dbh->disconnect;
-                $syslogMsg = sprintf($syslogMsgTpl, $recipient_count, $defaultquota, "INSERT");
+                $syslogMsg = sprintf($syslogMsgTpl, $recipient_count, $quotaToUse, "INSERT");
                 logger($syslogMsg);
                 syslog(LOG_NOTICE, $syslogMsg);
-                return "dunno";
+                #return "dunno";
+                next;
             }
         }
         if ($quotahash{$skey}{'expire'} < time()) {
@@ -379,7 +385,7 @@ sub handle_req {
             $quotahash{$skey}{'sum'}    = 0;
             $quotahash{$skey}{'tally'}  = 0;
             $quotahash{$skey}{'expire'} = calcexpire($deltaconf);
-            my $newQuota = ($quotahash{$skey}{'persist'}) ? $quotahash{$skey}{'quota'} : $defaultquota;
+            my $newQuota = ($quotahash{$skey}{'persist'}) ? $quotahash{$skey}{'quota'} : $quotaToUse;
             my $dbh = get_db_handler()
                 or return "dunno";;
             my $sql_query = $dbh->prepare($sql_updatereset);

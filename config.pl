@@ -8,4 +8,5 @@
     's_key_type' => 'all',
     'deltaconf' => 'daily',
     'defaultquota' => 100,
+    'defaultDomainquota' => '200',
 );
