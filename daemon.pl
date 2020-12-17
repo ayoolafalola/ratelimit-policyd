@@ -410,9 +410,10 @@ sub handle_req {
             my $errorMsg = "471 $deltaconf message quota exceeded";
             $to = $sendMailNotificationTo;
             $from = $sendMailNotificationFrom;
-            $subject = $errorMsg;
+            $subject = "$skey $deltaconf sendmail quota exceeded";
             $message = $syslogMsg;
             
+            # mail admin
             open(MAIL, "|/usr/sbin/sendmail -t");
             
             # Email Header
@@ -421,6 +422,19 @@ sub handle_req {
             print MAIL "Subject: $subject\n\n";
             # Email Body
             print MAIL $message;
+
+            close(MAIL);
+
+            # mail sender
+            open(MAIL, "|/usr/sbin/sendmail -t");
+            
+            # Email Header
+            
+            print MAIL "To: $sasl_username\n";
+            print MAIL "From: $from\n";
+            print MAIL "Subject: $subject\n\n";
+            # Email Body
+            print MAIL sprintf( "You have exceeded your $deltaconf email sending capabilities. You have sent %s/%s ", $quotahash{$skey}{'tally'}, $quotahash{$skey}{'quota'});
 
             close(MAIL);
 
