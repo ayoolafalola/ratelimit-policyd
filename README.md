@@ -2,7 +2,7 @@
 
 A Sender rate limit policy daemon for Postfix.
 
-Copyright (c) Onlime Webhosting (http://www.onlime.ch)
+Copyright (c) Ayoola Falola (http://www.ayoo.la)
 
 ## Credits
 
